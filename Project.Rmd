@@ -1,0 +1,562 @@
+---
+title: "Project"
+author: "Otunbade Jubril"
+date: "4/16/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Continental Analysis of Youtube Videos
+
+## North AMerica
+
+### importing packages and datasets
+```{r cars}
+library(caret)
+library(tidyverse)
+library(comprehenr)
+```
+
+```{r}
+US = read.csv('US-ok.csv')
+CA = read.csv('CA-ok.csv')
+MX = read.csv('US-ok.csv')
+```
+
+```{r}
+NoA <- rbind(US,CA,MX)
+glimpse(NoA)
+```
+The North American dataset contains a total of 122609 samples, 18 variabes of which 5 are integers while the rest are factor variables. 
+
+
+### Descriptive Analysis
+```{r}
+summary(NoA)
+```
+In the integer variables, there exist large outliers i.e the values of the 3rd quartile and the maximum value are quiet far apart. This will cause a large skew in the mean of the integer variables.
+The views variable as a minimum of 547 and a maximum of above 200M. The likes, dislikes and comment_count variables have maximum values in the millions and minimums of 0 which is possible when some of the videos are ratings_disabled, comments_disabled etc.
+The most common categories is the Entertainment (33,339), Music (16,665) while the least categories are Movies, Nonprofit & Activism and Shows.
+
+The description variable contains some missing values - 5968
+
+To check for missing values in the data set
+
+```{r}
+
+```
+
+### Feature Extraction
+```{r}
+NoA$trending_date = lapply(NoA$trending_date, function(w) paste(20, w, sep=''))
+NoA$trending_date = lapply(NoA$trending_date, function(w) gsub("\\.", "/", w))
+NoA$publish_time = as.POSIXlt(NoA$publish_time)
+
+# Publish
+P_years = substring(NoA$publish_time, 1, 4)
+P_months = substring(NoA$publish_time, 6, 7)
+P_days = substring(NoA$publish_time, 9, 10)
+
+#Trending
+T_years = substring(NoA$trending_date, 1, 4)
+T_months = substring(NoA$trending_date, 9, 10)
+T_days = substring(NoA$trending_date, 6, 7)
+
+# Counts
+NoT = to_vec(for(i in NoA$tags) nchar(split(i, '|')))
+NoC = to_vec(for(i in NoA$title) nchar(gsub(' ', '', i)))
+NoW = to_vec(for(i in NoA$title) nchar(split(i, ' ')))
+Tags = to_vec(for(i in NoA$tags) split(i, '|'))
+```
+
+Some variables/column are of little important to the current exploratory Analysis. So they shall be dropped
+```{r}
+NoA <- NoA[, !(colnames(NoA) %in% c('thumbnail_link', 'category_id','video_id', 'description','assignable'))]
+```
+* Reasons:
+ * Video_id : the values of this variable seems to be random characters of a string, it plays no important role
+ * Category_id: The numerical values of this variable served as the key for merging the catergory variable. No longer needed
+ * Thumbnail_link: this object datatype variable contains links to the thumbnail. Its of no use
+ * Description : The variable gives the Description of the video or the channel and links. It contains all the missing values of the dataset
+ * Assignables: The correlation of this variable to some of the more important variables gives a very low value
+
+
+### Exploratory Analysis
+```{r}
+# Plot on category distribution
+qplot(y = category, data = NoA, geom = 'bar')
+# Plot on views distribution
+qplot(views, data = NoA, bins = 100)
+# Plot on likes distribution
+qplot(likes, data = NoA, bins = 100)
+# Plot on dislikes distribution
+qplot(dislikes, data = NoA, bins = 100)
+# Plot on comment_count distribution
+qplot(comment_count, data = NoA, bins = 100)
+# Plot on Number of Character distribution
+qplot(NoC, data = NoA, bins = 210)
+# Plot on Number of Words distribution
+qplot(NoW, data = NoA, bins = 230)
+# Plot on Number of Tags distribution
+qplot(NoT, data = NoA, bins = 100)
+```
+
+```{r}
+# Number of words vs views# Plot on category vs views based on ratings disabled or not
+qplot(y = category, x = views, data = NoA, geom = 'auto', color = ratings_disabled)
+# Plot on category vs views based on ratings disabled or not
+qplot(likes, views, data = NoA, geom ='auto', color = video_error_or_removed)
+qplot(comment_count, views, data = NoA, geom = c('smooth','auto'))
+qplot(likes, views, data = NoA, geom ='auto', color = category)
+qplot(comment_count, likes, data = NoA, geom =c('smooth','auto'))
+qplot(comment_count, dislikes, data = NoA, geom =c('smooth','auto'))
+```
+
+```{r}
+ggplot(NoA, aes(views,reorder(category,views))) + geom_col(position = 'dodge', fill = T_years)
+```
+From the above, the entertainment and the Howto & Style categories had more views (i.e. trended) in 2017 than in 2018. 
+```{r}
+# Trending months
+qplot(T_months)
+qplot(T_months, NoA$views)
+qplot(T_months, NoA$likes)
+qplot(T_months, NoA$comment_count)
+qplot(T_months, NoC)
+qplot(T_months, NoT)
+qplot(T_months, NoW)
+
+# Trending years
+qplot(T_years)
+qplot(T_years, NoA$views)
+qplot(T_years, NoA$likes)
+qplot(T_years, NoA$comment_count)
+qplot(T_years, NoC)
+qplot(T_years, NoT)
+qplot(T_years, NoW)
+
+# Trending days
+qplot(T_days)
+qplot(T_days, NoA$views)
+qplot(T_days, NoA$likes)
+qplot(T_days, NoA$comment_count)
+qplot(T_days, NoC)
+qplot(T_days, NoT)
+qplot(T_days, NoW)
+```
+
+```{r}
+# Publish days
+qplot(P_days)
+qplot(P_days, NoA$views)
+qplot(P_days, NoA$likes)
+qplot(P_days, NoA$comment_count)
+qplot(P_days, NoC)
+qplot(P_days, NoT)
+qplot(P_days, NoW)
+
+# Publish years
+qplot(P_years)
+qplot(P_years, NoA$views)
+qplot(P_years, NoA$likes)
+qplot(P_years, NoA$comment_count)
+qplot(P_years, NoC)
+qplot(P_years, NoT)
+qplot(P_years, NoW)
+
+# Publish months
+qplot(P_months)
+qplot(P_months, NoA$views)
+qplot(P_months, NoA$likes)
+qplot(P_months, NoA$comment_count)
+qplot(P_months, NoC)
+qplot(P_months, NoT)
+qplot(P_months, NoW)
+```
+
+```{r}
+# Number of Words
+qplot(NoW, NoA$views)
+# Number of characters vs views
+qplot(NoC, NoA$views)
+# Number of tags vs views
+qplot(NoT, NoA$views)
+```
+
+
+```{r}
+# Number of Tags vs number of words
+qplot(NoW, NoT, data = NoA, geom = c('smooth','auto'))
+```
+
+```{r}
+qplot(P_days,T_days)
+qplot(P_months,T_months)
+qplot(P_years,T_years)
+```
+
+## Europe
+```{r}
+FR = read.csv('FR-ok.csv')
+DE = read.csv('DE-ok.csv')
+GB = read.csv('GB-ok.csv')
+RU = read.csv('RU-ok.csv')
+```
+
+```{r}
+Europe <- rbind(FR,DE,GB,RU)
+glimpse(Europe)
+```
+The European dataset contains a total of 159,003 samples, 20 variabes of which 5 are integers while the rest are factor variables
+
+
+### Descriptive Analysis
+```{r}
+summary(Europe)
+```
+In the integer variables, there exist large outliers i.e the values of the 3rd quartile and the maximum value are quiet far apart
+
+To check for missing values in the data set
+```{r}
+library(Amelia)
+missmap(Europe, col=c("black", "grey"), legend=FALSE)
+```
+
+```{r}
+
+```
+
+### Feature Extraction
+```{r}
+Europe$trending_date = lapply(Europe$trending_date, function(w) paste(20, w, sep=''))
+Europe$trending_date = lapply(Europe$trending_date, function(w) gsub("\\.", "/", w))
+Europe$publish_time = as.POSIXlt(Europe$publish_time)
+
+# Publish
+P_years = substring(Europe$publish_time, 1, 4)
+P_months = substring(Europe$publish_time, 6, 7)
+P_days = substring(Europe$publish_time, 9, 10)
+
+#Trending
+T_years = substring(Europe$trending_date, 1, 4)
+T_months = substring(Europe$trending_date, 9, 10)
+T_days = substring(Europe$trending_date, 6, 7)
+
+# Counts
+NoT = to_vec(for(i in Europe$tags) nchar(split(i, '|')))
+NoC = to_vec(for(i in Europe$title) nchar(gsub(' ', '', i)))
+NoW = to_vec(for(i in Europe$title) nchar(split(i, ' ')))
+```
+
+Some variables/column are of little important to the current exploratory Analysis. So they shall be dropped
+```{r}
+Europe <- Europe[, !(colnames(Europe) %in% c('thumbnail_link', 'category_id','video_id', 'description','assignable'))]
+```
+* Reasons:
+ * Video_id : the values of this variable seems to be random characters of a string, it plays no important role
+ * Category_id: The numerical values of this variable served as the key for merging the catergory variable. No longer needed
+ * Thumbnail_link: this object datatype variable contains links to the thumbnail. Its of no use
+ * Description : The variable gives the Description of the video or the channel and links. It contains all the missing values of the dataset
+ * Assignables: The correlation of this variable to some of the more important variables gives a very low value
+
+
+### Exploratory Analysis
+
+```{r}
+# Plot on category distribution
+qplot(y=category, data = Europe, geom = 'bar')
+# Plot on views distribution
+qplot(views, data = Europe, bins = 100)
+# Plot on likes distribution
+qplot(likes, data = Europe, bins = 100)
+# Plot on dislikes distribution
+qplot(dislikes, data = Europe, bins = 100)
+# Plot on comment_count distribution
+qplot(comment_count, data = Europe, bins = 100)
+# Plot on Number of Character distribution
+qplot(NoC, data = Europe, bins = 210)
+# Plot on Number of Words distribution
+qplot(NoW, data = Europe, bins = 230)
+# Plot on Number of Tags distribution
+qplot(NoT, data = Europe, bins = 100)
+```
+
+```{r}
+# Number of words vs views# Plot on category vs views based on ratings disabled or not
+qplot(y = category, x = views, data = Europe, geom = 'auto', color = ratings_disabled)
+# Plot on category vs views based on ratings disabled or not
+qplot(likes, views, data = Europe, geom ='auto', color = video_error_or_removed)
+qplot(comment_count, views, data = Europe, geom = c('smooth','auto'))
+qplot(likes, views, data = Europe, geom ='auto', color = category)
+qplot(comment_count, likes, data = Europe, geom =c('smooth','auto'))
+qplot(comment_count, dislikes, data = Europe, geom =c('smooth','auto'))
+```
+
+```{r}
+qplot(y = category, data = Europe, geom  = 'bar', fill= substring(trending_date, 1, 4), position = "dodge")
+```
+
+```{r}
+# Trending months
+qplot(T_months)
+qplot(T_months, Europe$views)
+qplot(T_months, Europe$likes)
+qplot(T_months, Europe$comment_count)
+qplot(T_months, NoC)
+qplot(T_months, NoT)
+qplot(T_months, NoW)
+
+# Trending years
+qplot(T_years)
+qplot(T_years, Europe$views)
+qplot(T_years, Europe$likes)
+qplot(T_years, Europe$comment_count)
+qplot(T_years, NoC)
+qplot(T_years, NoT)
+qplot(T_years, NoW)
+
+# Trending days
+qplot(T_days)
+qplot(T_days, Europe$views)
+qplot(T_days, Europe$likes)
+qplot(T_days, Europe$comment_count)
+qplot(T_days, NoC)
+qplot(T_days, NoT)
+qplot(T_days, NoW)
+```
+
+```{r}
+# Publish days
+qplot(P_days)
+qplot(P_days, Europe$views)
+qplot(P_days, Europe$likes)
+qplot(P_days, Europe$comment_count)
+qplot(P_days, NoC)
+qplot(P_days, NoT)
+qplot(P_days, NoW)
+
+# Publish years
+qplot(P_years)
+qplot(P_years, Europe$views)
+qplot(P_years, Europe$likes)
+qplot(P_years, Europe$comment_count)
+qplot(P_years, NoC)
+qplot(P_years, NoT)
+qplot(P_years, NoW)
+
+# Publish months
+qplot(P_months)
+qplot(P_months, Europe$views)
+qplot(P_months, Europe$likes)
+qplot(P_months, Europe$comment_count)
+qplot(P_months, NoC)
+qplot(P_months, NoT)
+qplot(P_months, NoW)
+```
+
+```{r}
+# Number of Words
+qplot(NoW, Europe$views)
+# Number of characters vs views
+qplot(NoC, Europe$views)
+# Number of tags vs views
+qplot(NoT, Europe$views)
+```
+
+
+```{r}
+# Number of Tags vs number of words
+qplot(NoW, NoT, data = Europe, geom = c('smooth','auto'))
+```
+
+```{r}
+qplot(P_days,T_days)
+qplot(P_months,T_months)
+qplot(P_years,T_years)
+```
+
+
+## Asia
+### importing datasets
+```{r}
+KR = read.csv('KR-ok.csv')
+JP = read.csv('JP-ok.csv')
+IN = read.csv('IN-ok.csv')
+```
+
+```{r}
+Asia <- rbind(KR, JP, IN)
+glimpse(Asia)
+```
+The Asian dataset contains a total of 79,801 samples, 18 variabes of which 5 are integers while the rest are factor variables
+
+
+### Descriptive Analysis
+```{r}
+summary(Asia)
+```
+In the integer variables, there exist large outliers i.e the values of the 3rd quartile and the maximum value are quiet far apart
+
+To check for missing values in the data set
+```{r}
+library(Amelia)
+missmap(Asia, col=c("black", "grey"), legend=FALSE)
+```
+
+```{r}
+
+```
+
+### Feature Extraction
+```{r}
+Asia$trending_date = lapply(Asia$trending_date, function(w) paste(20, w, sep=''))
+Asia$trending_date = lapply(Asia$trending_date, function(w) gsub("\\.", "/", w))
+Asia$publish_time = as.POSIXlt(Asia$publish_time)
+
+# Publish
+P_years = substring(Asia$publish_time, 1, 4)
+P_months = substring(Asia$publish_time, 6, 7)
+P_days = substring(Asia$publish_time, 9, 10)
+
+#Trending
+T_years = substring(Asia$trending_date, 1, 4)
+T_months = substring(Asia$trending_date, 9, 10)
+T_days = substring(Asia$trending_date, 6, 7)
+
+# Counts
+NoT = to_vec(for(i in Asia$tags) nchar(split(i, '|')))
+NoC = to_vec(for(i in Asia$title) nchar(gsub(' ', '', i)))
+NoW = to_vec(for(i in Asia$title) nchar(split(i, ' ')))
+```
+
+Some variables/column are of little important to the current exploratory Analysis. So they shall be dropped
+```{r}
+Asia <- Asia[, !(colnames(Asia) %in% c('thumbnail_link', 'category_id','video_id', 'description','assignable'))]
+```
+* Reasons:
+ * Video_id : the values of this variable seems to be random characters of a string, it plays no important role
+ * Category_id: The numerical values of this variable served as the key for merging the catergory variable. No longer needed
+ * Thumbnail_link: this object datatype variable contains links to the thumbnail. Its of no use
+ * Description : The variable gives the Description of the video or the channel and links. It contains all the missing values of the dataset
+ * Assignables: The correlation of this variable to some of the more important variables gives a very low value
+
+
+### Exploratory Analysis
+
+```{r}
+# Plot on category distribution
+qplot(y=category, data = Asia, geom = 'bar')
+# Plot on views distribution
+qplot(views, data = Asia, bins = 100)
+# Plot on likes distribution
+qplot(likes, data = Asia, bins = 100)
+# Plot on dislikes distribution
+qplot(dislikes, data = Asia, bins = 100)
+# Plot on comment_count distribution
+qplot(comment_count, data = Asia, bins = 100)
+# Plot on Number of Character distribution
+qplot(NoC, data = Asia, bins = 210)
+# Plot on Number of Words distribution
+qplot(NoW, data = Asia, bins = 230)
+# Plot on Number of Tags distribution
+qplot(NoT, data = Asia, bins = 100)
+```
+
+```{r}
+# Number of words vs views# Plot on category vs views based on ratings disabled or not
+qplot(y = category, x = views, data = Asia, geom = 'auto', color = ratings_disabled)
+# Plot on category vs views based on ratings disabled or not
+qplot(likes, views, data = Asia, geom ='auto', color = video_error_or_removed)
+qplot(comment_count, views, data = Europe, geom = c('smooth','auto'))
+qplot(likes, views, data = Asia, geom ='auto', color = category)
+qplot(comment_count, likes, data = Asia, geom =c('smooth','auto'))
+qplot(comment_count, dislikes, data = Asia, geom =c('smooth','auto'))
+```
+
+```{r}
+qplot(y = category, data = Asia, geom  = 'col', fill= T_years, position = "dodge")
+```
+
+```{r}
+# Trending months
+qplot(T_months)
+qplot(T_months, Asia$views)
+qplot(T_months, Asia$likes)
+qplot(T_months, Asia$comment_count)
+qplot(T_months, NoC)
+qplot(T_months, NoT)
+qplot(T_months, NoW)
+
+# Trending years
+qplot(T_years)
+qplot(T_years, Asia$views)
+qplot(T_years, Asia$likes)
+qplot(T_years, Asia$comment_count)
+qplot(T_years, NoC)
+qplot(T_years, NoT)
+qplot(T_years, NoW)
+
+# Trending days
+qplot(T_days)
+qplot(T_days, Asia$views)
+qplot(T_days, Asia$likes)
+qplot(T_days, Asia$comment_count)
+qplot(T_days, NoC)
+qplot(T_days, NoT)
+qplot(T_days, NoW)
+```
+
+```{r}
+# Publish days
+qplot(P_days)
+qplot(P_days, Asia$views)
+qplot(P_days, Asia$likes)
+qplot(P_days, Asia$comment_count)
+qplot(P_days, NoC)
+qplot(P_days, NoT)
+qplot(P_days, NoW)
+
+# Publish years
+qplot(P_years)
+qplot(P_years, Asia$views)
+qplot(P_years, Asia$likes)
+qplot(P_years, Asia$comment_count)
+qplot(P_years, NoC)
+qplot(P_years, NoT)
+qplot(P_years, NoW)
+
+# Publish months
+qplot(P_months)
+qplot(P_months, Asia$views)
+qplot(P_months, Asia$likes)
+qplot(P_months, Asia$comment_count)
+qplot(P_months, NoC)
+qplot(P_months, NoT)
+qplot(P_months, NoW)
+```
+
+```{r}
+# Number of Words
+qplot(NoW, Asia$views)
+# Number of characters vs views
+qplot(NoC, Asia$views)
+# Number of tags vs views
+qplot(NoT, Asia$views)
+```
+
+
+```{r}
+# Number of Tags vs number of words
+qplot(NoW, NoT, data = Asia, geom = c('smooth','auto'))
+```
+
+```{r}
+qplot(P_days,T_days)
+qplot(P_months,T_months)
+qplot(P_years,T_years)
+```
