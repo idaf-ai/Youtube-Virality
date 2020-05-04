@@ -12,44 +12,35 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Continental Analysis of Youtube Videos
-
-## North AMerica
-
-### importing packages and datasets
-```{r cars}
+### Importing Packages
+```{r}
 library(caret)
 library(tidyverse)
 library(comprehenr)
 ```
+## North AMerica
 
+### importing datasets
 ```{r}
 US = read.csv('US-ok.csv')
 CA = read.csv('CA-ok.csv')
 MX = read.csv('US-ok.csv')
-```
 
-```{r}
 NoA <- rbind(US,CA,MX)
+NoA <- NoA[NoA$views >= 5000000,]
 glimpse(NoA)
 ```
-The North American dataset contains a total of 122609 samples, 18 variabes of which 5 are integers while the rest are factor variables. 
+The North American dataset contains a total of 9071 samples, 18 variabes of which 5 are integers while the rest are factor variables. 
 
 
 ### Descriptive Analysis
 ```{r}
 summary(NoA)
 ```
-In the integer variables, there exist large outliers i.e the values of the 3rd quartile and the maximum value are quiet far apart. This will cause a large skew in the mean of the integer variables.
-The views variable as a minimum of 547 and a maximum of above 200M. The likes, dislikes and comment_count variables have maximum values in the millions and minimums of 0 which is possible when some of the videos are ratings_disabled, comments_disabled etc.
+In the integer variables, there exist large number of outliers i.e the values of the 3rd quartile and the maximum value are quite far apart. This caused a large skew in the mean of the integer variables.
+The views variable as a minimum of 5M and a maximum of above 200M. The likes, dislikes and comment_count variables have maximum values in the millions and minimums of 0 which is possible when some of the videos are ratings disabled, comments disabled etc.
 The most common categories is the Entertainment (33,339), Music (16,665) while the least categories are Movies, Nonprofit & Activism and Shows.
-
-The description variable contains some missing values - 5968
-
-To check for missing values in the data set
-
-```{r}
-
-```
+The description variable contains 5968 missing values 
 
 ### Feature Extraction
 ```{r}
@@ -58,23 +49,23 @@ NoA$trending_date = lapply(NoA$trending_date, function(w) gsub("\\.", "/", w))
 NoA$publish_time = as.POSIXlt(NoA$publish_time)
 
 # Publish
-P_years = substring(NoA$publish_time, 1, 4)
-P_months = substring(NoA$publish_time, 6, 7)
-P_days = substring(NoA$publish_time, 9, 10)
+P_years = substring(NoA$publish_time, 1, 4)  #Publish years
+P_months = substring(NoA$publish_time, 6, 7) #Publish months
+P_days = substring(NoA$publish_time, 9, 10)  #Publish days
 
 #Trending
-T_years = substring(NoA$trending_date, 1, 4)
-T_months = substring(NoA$trending_date, 9, 10)
-T_days = substring(NoA$trending_date, 6, 7)
+T_years = substring(NoA$trending_date, 1, 4) #Trending years
+T_months = substring(NoA$trending_date, 9, 10) #Trending months
+T_days = substring(NoA$trending_date, 6, 7)  #Trending days
 
 # Counts
-NoT = to_vec(for(i in NoA$tags) nchar(split(i, '|')))
-NoC = to_vec(for(i in NoA$title) nchar(gsub(' ', '', i)))
-NoW = to_vec(for(i in NoA$title) nchar(split(i, ' ')))
-Tags = to_vec(for(i in NoA$tags) split(i, '|'))
+NoT = to_vec(for(i in NoA$tags) nchar(split(i, '|')))   #Number of Tags per videos
+NoC = to_vec(for(i in NoA$title) nchar(gsub(' ', '', i)))   #Number of Characters in the Title per videos
+NoW = to_vec(for(i in NoA$title) nchar(split(i, ' ')))   #Number of Words in the Title per videos
+Tags = to_vec(for(i in NoA$tags) split(i, '|')) # Tags per videos
 ```
 
-Some variables/column are of little important to the current exploratory Analysis. So they shall be dropped
+Some variables/columns are of little important to the current Exploratory Analysis. So they shall be dropped
 ```{r}
 NoA <- NoA[, !(colnames(NoA) %in% c('thumbnail_link', 'category_id','video_id', 'description','assignable'))]
 ```
@@ -91,11 +82,11 @@ NoA <- NoA[, !(colnames(NoA) %in% c('thumbnail_link', 'category_id','video_id', 
 # Plot on category distribution
 qplot(y = category, data = NoA, geom = 'bar')
 # Plot on views distribution
-qplot(views, data = NoA, bins = 100)
+qplot(views, data = NoA, geom = 'boxplot')
 # Plot on likes distribution
-qplot(likes, data = NoA, bins = 100)
+qplot(likes, data = NoA, geom = 'boxplot')
 # Plot on dislikes distribution
-qplot(dislikes, data = NoA, bins = 100)
+qplot(dislikes, data = NoA, geom = 'boxplot')
 # Plot on comment_count distribution
 qplot(comment_count, data = NoA, bins = 100)
 # Plot on Number of Character distribution
@@ -105,7 +96,14 @@ qplot(NoW, data = NoA, bins = 230)
 # Plot on Number of Tags distribution
 qplot(NoT, data = NoA, bins = 100)
 ```
-
+The category distribution shows that Music has the largest populace followed by Entertainment. While the lows are Shows, Nonprofits & Activism and Movies.
+The views distribution majorly centers within the 0 to 2,500,000 views then very little extends towards 50 million. The rest are outliers
+The likes distribution majorly centers within the 0 to 500,000 likes then very little extends towards 2 million. The rest are outliers
+The dislikes distribution majorly centers within the 0 to 125,000 dislikes then very little extends towards 250,000. The rest are outliers.
+The comment counts distribution largely centers within the 0 to 15,000 comments then very little extends towards 20,000. The rest are outliers
+The NoC (Number of Characters) distribution majorly centers within the 0 to 80 characters then very little extends more than 200. The rest are outliers
+The NoW (Number of Words) distribution majorly centers within the 0 to 100 words then very little extends more than 200. The rest are outliers
+The NoT (Number of Tags) distribution majorly centers within the 0 to 500 tags then very little extends more than 1000. The rest are outliers
 ```{r}
 # Number of words vs views# Plot on category vs views based on ratings disabled or not
 qplot(y = category, x = views, data = NoA, geom = 'auto', color = ratings_disabled)
@@ -206,13 +204,12 @@ FR = read.csv('FR-ok.csv')
 DE = read.csv('DE-ok.csv')
 GB = read.csv('GB-ok.csv')
 RU = read.csv('RU-ok.csv')
-```
 
-```{r}
 Europe <- rbind(FR,DE,GB,RU)
+Europe <- Europe[Europe$views >= 5000000,]
 glimpse(Europe)
 ```
-The European dataset contains a total of 159,003 samples, 20 variabes of which 5 are integers while the rest are factor variables
+The European dataset contains a total of 9,272 samples, 20 variabes of which 5 are integers while the rest are factor variables
 
 
 ### Descriptive Analysis
@@ -387,13 +384,12 @@ qplot(P_years,T_years)
 KR = read.csv('KR-ok.csv')
 JP = read.csv('JP-ok.csv')
 IN = read.csv('IN-ok.csv')
-```
 
-```{r}
 Asia <- rbind(KR, JP, IN)
+Asia <- Asia[Asia$views >= 5000000,]
 glimpse(Asia)
 ```
-The Asian dataset contains a total of 79,801 samples, 18 variabes of which 5 are integers while the rest are factor variables
+The Asian dataset contains a total of 1664 samples, 18 variabes of which 5 are integers while the rest are factor variables
 
 
 ### Descriptive Analysis
@@ -406,10 +402,6 @@ To check for missing values in the data set
 ```{r}
 library(Amelia)
 missmap(Asia, col=c("black", "grey"), legend=FALSE)
-```
-
-```{r}
-
 ```
 
 ### Feature Extraction
@@ -479,7 +471,7 @@ qplot(comment_count, dislikes, data = Asia, geom =c('smooth','auto'))
 ```
 
 ```{r}
-qplot(y = category, data = Asia, geom  = 'col', fill= T_years, position = "dodge")
+#qplot(y = category, data = Asia, geom  = 'col', fill= T_years, position = "dodge")
 ```
 
 ```{r}
